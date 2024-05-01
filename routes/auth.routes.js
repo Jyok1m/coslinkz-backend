@@ -5,7 +5,7 @@ var router = express.Router();
 const { checkSignUpFields } = require("../middlewares/auth.middleware");
 
 // Modules
-const { createUser } = require("../modules/auth.modules");
+const { createUser, verifyUser } = require("../modules/auth.modules");
 
 router.post("/sign-up", checkSignUpFields, async (req, res) => {
 	try {
@@ -17,6 +17,21 @@ router.post("/sign-up", checkSignUpFields, async (req, res) => {
 		const { accessToken, refreshToken } = creationResult;
 
 		res.json({ success: true, message: "User successfully created", accessToken, refreshToken });
+	} catch (e) {
+		res.json({ success: false, error: e.message });
+	}
+});
+
+router.post("/sign-in", async (req, res) => {
+	try {
+		const { identifier, password } = req.body;
+
+		const verificationResult = await verifyUser(identifier, password);
+		if (!verificationResult.success) throw new Error(verificationResult.error);
+
+		const { accessToken, refreshToken } = verificationResult;
+
+		res.json({ success: true, message: "User successfully logged-in", accessToken, refreshToken });
 	} catch (e) {
 		res.json({ success: false, error: e.message });
 	}
