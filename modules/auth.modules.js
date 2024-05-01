@@ -6,6 +6,7 @@ const Token = require("../db/models/token.model");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const uid = require("uid2");
+const nodemailer = require("nodemailer");
 
 /* ---------------------------------------------------------------- */
 /*                            Create user                           */
@@ -32,6 +33,8 @@ async function createUser(username, email, password) {
 		const newTokens = await new Token({ user: createdUser._id, access: newAccessToken, refresh: newRefreshToken });
 		const createdTokens = await newTokens.save();
 
+		await sendAccountValidationEmail(createdUser.email, createdUser.rights.confirmationCode);
+
 		return { success: true, accessToken: createdTokens.access, refreshToken: createdTokens.refresh };
 	} catch (e) {
 		return { success: false, error: e.message };
@@ -44,11 +47,12 @@ async function createUser(username, email, password) {
 
 async function verifyUser(identifier, password) {
 	try {
-		const user = await User.findOne({ $or: [{ username: identifier }, { email: identifier }] }).select("_id password");
+		const user = await User.findOne({ $or: [{ username: identifier }, { email: identifier }] }).select("_id password rights");
 		if (!user) return { success: false, error: "User not found" };
 
 		const isPasswordValid = bcrypt.compareSync(password, user.password);
 		if (!isPasswordValid) return { success: false, error: "Invalid password" };
+		if (user.rights.registration === "pending") return { success: false, error: "Acount not yet confirmed" };
 
 		const tokens = await Token.findOne({ user: user._id });
 
@@ -141,5 +145,36 @@ function verifyToken(token, type = "") {
 /* ---------------------------------------------------------------- */
 /*                           Handle emails                          */
 /* ---------------------------------------------------------------- */
+
+async function sendAccountValidationEmail(email, confirmationCode) {
+	try {
+		const transporter = nodemailer.createTransport({
+			service: "gmail",
+			auth: {
+				user: process.env.NODEMAILER_EMAIL,
+				pass: process.env.NODEMAILER_PASSWORD,
+			},
+		});
+
+		const mailOptions = {
+			from: process.env.NODEMAILER_EMAIL,
+			to: email,
+			subject: "Code d'activation CosLinkz",
+			html: `
+			<body>
+				<p>Voici le code d'activation de votre compte CosLinkz : </p>
+				<h1>${confirmationCode}</h1>
+			</body>
+			`,
+		};
+
+		await transporter.sendMail(mailOptions);
+
+		return { success: true };
+	} catch (e) {
+		console.error(error.message);
+		return { success: false };
+	}
+}
 
 module.exports = { createUser, verifyUser };
