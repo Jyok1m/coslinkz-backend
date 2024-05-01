@@ -4,13 +4,19 @@ var router = express.Router();
 // Middlewares
 const { checkSignUpFields } = require("../middlewares/auth.middleware");
 
+// Modules
+const { createUser } = require("../modules/auth.modules");
+
 router.post("/sign-up", checkSignUpFields, async (req, res) => {
 	try {
-		const { email, username, password } = req;
+		const { username, email, password } = req;
 
-		res.json({ success: true, req: req.email });
+		const creationResult = await createUser(username, email, password);
+		if (!creationResult.success) throw new Error(creationResult.error);
+
+		res.json({ success: true, message: "User successfully created" });
 	} catch (e) {
-		res.status(500).json({ success: false, error: e.message });
+		res.json({ success: false, error: e.message });
 	}
 });
 

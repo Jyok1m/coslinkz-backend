@@ -1,7 +1,7 @@
 const mongoose = require("mongoose").default;
 
 const rightSchema = new mongoose.Schema({
-	type: { type: String, required: true, enum: ["user", "admin"] },
+	type: { type: String, required: false, default: "user", enum: ["user", "admin"] },
 	registration: { type: String, required: false, default: "pending", enum: ["pending", "confirmed"] },
 	confirmationCode: { type: String, required: false, default: "" },
 });
