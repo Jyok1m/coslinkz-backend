@@ -14,7 +14,9 @@ router.post("/sign-up", checkSignUpFields, async (req, res) => {
 		const creationResult = await createUser(username, email, password);
 		if (!creationResult.success) throw new Error(creationResult.error);
 
-		res.json({ success: true, message: "User successfully created" });
+		const { accessToken, refreshToken } = creationResult;
+
+		res.json({ success: true, message: "User successfully created", accessToken, refreshToken });
 	} catch (e) {
 		res.json({ success: false, error: e.message });
 	}
