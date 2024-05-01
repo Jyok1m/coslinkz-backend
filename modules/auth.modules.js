@@ -7,6 +7,10 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const uid = require("uid2");
 
+/* ---------------------------------------------------------------- */
+/*                            Create user                           */
+/* ---------------------------------------------------------------- */
+
 async function createUser(username, email, password) {
 	try {
 		const userExists = await User.findOne({ username: new RegExp(username, "i") });
@@ -33,6 +37,10 @@ async function createUser(username, email, password) {
 		return { success: false, error: e.message };
 	}
 }
+
+/* ---------------------------------------------------------------- */
+/*                            Verify user                           */
+/* ---------------------------------------------------------------- */
 
 async function verifyUser(identifier, password) {
 	try {
@@ -75,6 +83,10 @@ async function verifyUser(identifier, password) {
 		return { success: false, error: e.message };
 	}
 }
+
+/* ---------------------------------------------------------------- */
+/*                           Handle tokens                          */
+/* ---------------------------------------------------------------- */
 
 async function verifyToken(userId = new ObjectId()) {
 	try {
@@ -125,5 +137,9 @@ function verifyToken(token, type = "") {
 		return { success: false };
 	}
 }
+
+/* ---------------------------------------------------------------- */
+/*                           Handle emails                          */
+/* ---------------------------------------------------------------- */
 
 module.exports = { createUser, verifyUser };
