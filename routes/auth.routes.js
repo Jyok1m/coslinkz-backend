@@ -2,10 +2,10 @@ var express = require("express");
 var router = express.Router();
 
 // Middlewares
-const { checkSignUpFields } = require("../middlewares/auth.middleware");
+const { checkAccess, checkSignUpFields } = require("../middlewares/auth.middleware");
 
 // Modules
-const { createUser, verifyUser } = require("../modules/auth.modules");
+const { createUser, verifyUser, resetPassword, changePassword } = require("../modules/auth.modules");
 
 router.post("/sign-up", checkSignUpFields, async (req, res) => {
 	try {
@@ -14,9 +14,7 @@ router.post("/sign-up", checkSignUpFields, async (req, res) => {
 		const creationResult = await createUser(username, email, password);
 		if (!creationResult.success) throw new Error(creationResult.error);
 
-		const { accessToken, refreshToken } = creationResult;
-
-		res.json({ success: true, message: "User successfully created", accessToken, refreshToken });
+		res.json({ ...creationResult });
 	} catch (e) {
 		res.json({ success: false, error: e.message });
 	}
@@ -29,9 +27,34 @@ router.post("/sign-in", async (req, res) => {
 		const verificationResult = await verifyUser(identifier, password);
 		if (!verificationResult.success) throw new Error(verificationResult.error);
 
-		const { accessToken, refreshToken } = verificationResult;
+		res.json({ ...verificationResult });
+	} catch (e) {
+		res.json({ success: false, error: e.message });
+	}
+});
 
-		res.json({ success: true, message: "User successfully logged-in", accessToken, refreshToken });
+router.post("/forgot-password", async (req, res) => {
+	try {
+		const { email } = req.body;
+
+		const resetResult = await resetPassword(email);
+		if (!resetResult.success) throw new Error(resetResult.error);
+
+		res.json({ ...resetResult });
+	} catch (e) {
+		res.json({ success: false, error: e.message });
+	}
+});
+
+router.put("/change-password", checkAccess, async (req, res) => {
+	try {
+		const { userId } = req;
+		const { password } = req.body;
+
+		const changeResult = await changePassword(userId, password);
+		if (!changeResult.success) throw new Error(changeResult.error);
+
+		res.json({ ...changeResult });
 	} catch (e) {
 		res.json({ success: false, error: e.message });
 	}

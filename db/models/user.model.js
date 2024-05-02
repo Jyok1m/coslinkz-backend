@@ -11,6 +11,8 @@ const userSchema = new mongoose.Schema(
 		username: { type: String, required: true },
 		email: { type: String, required: true },
 		password: { type: String, required: true },
+		tempPassword: { type: String, required: false, default: null },
+		tempPasswordExp: { type: Date, required: false, default: null },
 		avatar: { type: String, required: false, default: "" },
 		rights: rightSchema,
 		status: { type: String, required: false, default: "offline", enum: ["online", "offline"] },

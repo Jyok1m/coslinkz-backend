@@ -1,5 +1,3 @@
-const { ObjectId } = require("mongoose").Types;
-
 const User = require("../db/models/user.model");
 const Token = require("../db/models/token.model");
 
@@ -7,6 +5,7 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const uid = require("uid2");
 const nodemailer = require("nodemailer");
+const moment = require("moment");
 
 /* ---------------------------------------------------------------- */
 /*                            Create user                           */
@@ -35,7 +34,13 @@ async function createUser(username, email, password) {
 
 		await sendAccountValidationEmail(createdUser.email, createdUser.rights.confirmationCode);
 
-		return { success: true, accessToken: createdTokens.access, refreshToken: createdTokens.refresh };
+		return {
+			success: true,
+			message: "User successfully created",
+			accessToken: createdTokens.access,
+			refreshToken: createdTokens.refresh,
+			isReset: false,
+		};
 	} catch (e) {
 		return { success: false, error: e.message };
 	}
@@ -46,32 +51,50 @@ async function createUser(username, email, password) {
 /* ---------------------------------------------------------------- */
 
 async function verifyUser(identifier, password) {
+	const now = moment.utc();
+
 	try {
-		const user = await User.findOne({ $or: [{ username: identifier }, { email: identifier }] }).select("_id password rights");
+		const user = await User.findOne({ $or: [{ username: identifier }, { email: identifier }] }).select(
+			"_id password tempPassword tempPasswordExp rights"
+		);
 		if (!user) return { success: false, error: "User not found" };
 
+		let isReset = false;
 		const isPasswordValid = bcrypt.compareSync(password, user.password);
-		if (!isPasswordValid) return { success: false, error: "Invalid password" };
+
+		if (!isPasswordValid) {
+			if (!user.tempPassword || !user.tempPasswordExp) return { success: false, error: "Invalid password" };
+
+			const isTempPasswordValid = now.isBefore(moment(user.tempPasswordExp)) && bcrypt.compareSync(password, user.tempPassword);
+			if (!isTempPasswordValid) {
+				return { success: false, error: "Invalid password" };
+			} else {
+				isReset = true;
+			}
+		}
+
 		if (user.rights.registration === "pending") return { success: false, error: "Acount not yet confirmed" };
 
 		const tokens = await Token.findOne({ user: user._id });
 
 		if (tokens) {
 			const accessTokenCheck = verifyToken(tokens.access, "ACCESS");
-			if (accessTokenCheck.success) return { success: true, accessToken: tokens.access, refreshToken: tokens.refresh };
+			if (accessTokenCheck.success) {
+				return { success: true, message: "User successfully logged-in", accessToken: tokens.access, refreshToken: tokens.refresh, isReset };
+			}
 
 			const refreshTokenCheck = verifyToken(tokens.refresh, "REFRESH");
 			if (refreshTokenCheck.success) {
 				const newAccessToken = generateToken(String(user._id), "ACCESS");
 				await Token.findByIdAndUpdate(tokens, { access: newAccessToken });
 
-				return { success: true, accessToken: newAccessToken, refreshToken: tokens.refresh };
+				return { success: true, message: "User successfully logged-in", accessToken: newAccessToken, refreshToken: tokens.refresh, isReset };
 			} else {
 				const newAccessToken = generateToken(String(user._id), "ACCESS");
 				const newRefreshToken = generateToken(String(user._id), "REFRESH");
 				await Token.findByIdAndUpdate(tokens, { access: newAccessToken, refresh: newRefreshToken });
 
-				return { success: true, accessToken: newAccessToken, refreshToken: newRefreshToken };
+				return { success: true, message: "User successfully logged-in", accessToken: newAccessToken, refreshToken: newRefreshToken, isReset };
 			}
 		} else {
 			// Generate new token
@@ -81,8 +104,50 @@ async function verifyUser(identifier, password) {
 			const newTokens = await new Token({ user: user._id, access: newAccessToken, refresh: newRefreshToken });
 			const createdTokens = await newTokens.save();
 
-			return { success: true, accessToken: createdTokens.access, refreshToken: createdTokens.refresh };
+			return {
+				success: true,
+				message: "User successfully logged-in",
+				accessToken: createdTokens.access,
+				refreshToken: createdTokens.refresh,
+				isReset,
+			};
 		}
+	} catch (e) {
+		return { success: false, error: e.message };
+	}
+}
+
+/* ---------------------------------------------------------------- */
+/*                          Reset password                          */
+/* ---------------------------------------------------------------- */
+
+async function resetPassword(email) {
+	try {
+		const user = await User.findOne({ email }).select("email");
+		if (!user) return { success: false, error: "User not found" };
+
+		const tempPassword = uid(15);
+		const tempPasswordExp = moment.utc().add(15, "minutes").toDate();
+		await User.findByIdAndUpdate(String(user._id), { tempPassword: bcrypt.hashSync(tempPassword, 10), tempPasswordExp });
+
+		await sendTemporaryPassword(user.email, tempPassword);
+
+		return { success: true, message: "A new temporary password has been sent to your email" };
+	} catch (e) {
+		return { success: false, error: e.message };
+	}
+}
+
+/* ---------------------------------------------------------------- */
+/*                          Change password                         */
+/* ---------------------------------------------------------------- */
+
+async function changePassword(userId, password) {
+	try {
+		const newPassword = bcrypt.hashSync(password, 10);
+		await User.findByIdAndUpdate(userId, { password: newPassword });
+
+		return { success: true, message: "Password changed successfully" };
 	} catch (e) {
 		return { success: false, error: e.message };
 	}
@@ -91,26 +156,6 @@ async function verifyUser(identifier, password) {
 /* ---------------------------------------------------------------- */
 /*                           Handle tokens                          */
 /* ---------------------------------------------------------------- */
-
-async function verifyToken(userId = new ObjectId()) {
-	try {
-		const tokens = await Token.findOne({ user: userId });
-		if (!tokens) {
-			// Generate new token
-			const newAccessToken = generateToken(String(userId), "ACCESS");
-			const newRefreshToken = generateToken(String(userId), "REFRESH");
-
-			const newTokens = await new Token({ user: userId, access: newAccessToken, refresh: newRefreshToken });
-			const createdTokens = await newTokens.save();
-
-			return { success: true, accessToken: createdTokens.access, refreshToken: createdTokens.refresh };
-		} else {
-			return { success: false };
-		}
-	} catch (error) {
-		return { success: false, error: error.message };
-	}
-}
 
 function generateToken(userId, type = "") {
 	try {
@@ -132,7 +177,7 @@ function verifyToken(token, type = "") {
 		const decoded = jwt.verify(token, secretKey);
 
 		if (decoded.user) {
-			return { success: true };
+			return { success: true, userId: decoded.user };
 		} else {
 			return { success: false };
 		}
@@ -163,7 +208,7 @@ async function sendAccountValidationEmail(email, confirmationCode) {
 			html: `
 			<body>
 				<p>Voici le code d'activation de votre compte CosLinkz : </p>
-				<h1>${confirmationCode}</h1>
+				<h3>${confirmationCode}</h3>
 			</body>
 			`,
 		};
@@ -177,4 +222,35 @@ async function sendAccountValidationEmail(email, confirmationCode) {
 	}
 }
 
-module.exports = { createUser, verifyUser };
+async function sendTemporaryPassword(email, tempPassword) {
+	try {
+		const transporter = nodemailer.createTransport({
+			service: "gmail",
+			auth: {
+				user: process.env.NODEMAILER_EMAIL,
+				pass: process.env.NODEMAILER_PASSWORD,
+			},
+		});
+
+		const mailOptions = {
+			from: process.env.NODEMAILER_EMAIL,
+			to: email,
+			subject: "Mot de passe temporaire CosLinkz",
+			html: `
+			<body>
+				<p>Voici votre mot de passe temporaire : </p>
+				<h3>${tempPassword}</h3>
+			</body>
+			`,
+		};
+
+		await transporter.sendMail(mailOptions);
+
+		return { success: true };
+	} catch (e) {
+		console.error(error.message);
+		return { success: false };
+	}
+}
+
+module.exports = { createUser, verifyUser, generateToken, verifyToken, resetPassword, changePassword };
