@@ -11,7 +11,7 @@ const moment = require("moment");
 /*                            Create user                           */
 /* ---------------------------------------------------------------- */
 
-async function createUser(username, email, password) {
+async function createUser(username = "", email = "", password = "") {
 	try {
 		const userExists = await User.findOne({ username: new RegExp(username, "i") });
 		if (userExists) return { success: false, error: "User already exists" };
@@ -20,7 +20,7 @@ async function createUser(username, email, password) {
 			username,
 			email,
 			password: bcrypt.hashSync(password, 10),
-			rights: { type: "user", registration: "pending", confirmationCode: uid(5) },
+			account: { type: "user", registration: "pending", confirmationCode: uid(5) },
 		});
 		const createdUser = await newUser.save();
 		if (!createdUser) return { success: false, error: "A problem occured while saving the user" };
@@ -32,7 +32,7 @@ async function createUser(username, email, password) {
 		const newTokens = await new Token({ user: createdUser._id, access: newAccessToken, refresh: newRefreshToken });
 		const createdTokens = await newTokens.save();
 
-		await sendAccountValidationEmail(createdUser.email, createdUser.rights.confirmationCode);
+		await sendAccountValidationEmail(createdUser.email, createdUser.account.confirmationCode);
 
 		return {
 			success: true,
@@ -40,6 +40,7 @@ async function createUser(username, email, password) {
 			accessToken: createdTokens.access,
 			refreshToken: createdTokens.refresh,
 			isReset: false,
+			mustConfirm: true,
 		};
 	} catch (e) {
 		return { success: false, error: e.message };
@@ -50,12 +51,12 @@ async function createUser(username, email, password) {
 /*                            Verify user                           */
 /* ---------------------------------------------------------------- */
 
-async function verifyUser(identifier, password) {
+async function verifyUser(identifier = "", password = "") {
 	const now = moment.utc();
 
 	try {
 		const user = await User.findOne({ $or: [{ username: identifier }, { email: identifier }] }).select(
-			"_id password tempPassword tempPasswordExp rights"
+			"_id password tempPassword tempPasswordExp account"
 		);
 		if (!user) return { success: false, error: "User not found" };
 
@@ -73,45 +74,31 @@ async function verifyUser(identifier, password) {
 			}
 		}
 
-		if (user.rights.registration === "pending") return { success: false, error: "Acount not yet confirmed" };
+		if (user.account.registration === "pending") return { success: false, error: "Acount not yet confirmed", mustConfirm: true };
 
-		const tokens = await Token.findOne({ user: user._id });
+		const tokenGeneration = await getTokens(String(user._id));
+		if (!tokenGeneration.success) return { success: false, error: tokenGeneration.error };
 
-		if (tokens) {
-			const accessTokenCheck = verifyToken(tokens.access, "ACCESS");
-			if (accessTokenCheck.success) {
-				return { success: true, message: "User successfully logged-in", accessToken: tokens.access, refreshToken: tokens.refresh, isReset };
-			}
+		return { ...tokenGeneration, message: "User successfully logged-in", isReset, mustConfirm: false };
+	} catch (e) {
+		return { success: false, error: e.message };
+	}
+}
 
-			const refreshTokenCheck = verifyToken(tokens.refresh, "REFRESH");
-			if (refreshTokenCheck.success) {
-				const newAccessToken = generateToken(String(user._id), "ACCESS");
-				await Token.findByIdAndUpdate(tokens, { access: newAccessToken });
+async function verifyAccount(userId = "", code = "") {
+	try {
+		const user = await User.findById(userId).select("_id account");
+		if (user.account.registration === "confirmed") return { success: false, error: "Acount already confirmed" };
 
-				return { success: true, message: "User successfully logged-in", accessToken: newAccessToken, refreshToken: tokens.refresh, isReset };
-			} else {
-				const newAccessToken = generateToken(String(user._id), "ACCESS");
-				const newRefreshToken = generateToken(String(user._id), "REFRESH");
-				await Token.findByIdAndUpdate(tokens, { access: newAccessToken, refresh: newRefreshToken });
+		const isConfimationCodeValid = user.account.confirmationCode === code;
+		if (!isConfimationCodeValid) return { success: false, error: "Invalid confirmation key" };
 
-				return { success: true, message: "User successfully logged-in", accessToken: newAccessToken, refreshToken: newRefreshToken, isReset };
-			}
-		} else {
-			// Generate new token
-			const newAccessToken = generateToken(String(user._id), "ACCESS");
-			const newRefreshToken = generateToken(String(user._id), "REFRESH");
+		await User.findByIdAndUpdate(userId, { $set: { "account.registration": "confirmed" } });
 
-			const newTokens = await new Token({ user: user._id, access: newAccessToken, refresh: newRefreshToken });
-			const createdTokens = await newTokens.save();
+		const tokenGeneration = await getTokens(String(user._id));
+		if (!tokenGeneration.success) return { success: false, error: tokenGeneration.error };
 
-			return {
-				success: true,
-				message: "User successfully logged-in",
-				accessToken: createdTokens.access,
-				refreshToken: createdTokens.refresh,
-				isReset,
-			};
-		}
+		return { ...tokenGeneration, message: "User successfully validated", isReset: false, mustConfirm: false };
 	} catch (e) {
 		return { success: false, error: e.message };
 	}
@@ -121,7 +108,7 @@ async function verifyUser(identifier, password) {
 /*                          Reset password                          */
 /* ---------------------------------------------------------------- */
 
-async function resetPassword(email) {
+async function resetPassword(email = "") {
 	try {
 		const user = await User.findOne({ email }).select("email");
 		if (!user) return { success: false, error: "User not found" };
@@ -142,8 +129,12 @@ async function resetPassword(email) {
 /*                          Change password                         */
 /* ---------------------------------------------------------------- */
 
-async function changePassword(userId, password) {
+async function changePassword(userId = "", password = "") {
 	try {
+		const user = await User.findById(userId).select("password");
+		const isPasswordSame = bcrypt.compareSync(password, user.password);
+		if (isPasswordSame) return { success: false, error: "Passwords cannot be the same" };
+
 		const newPassword = bcrypt.hashSync(password, 10);
 		await User.findByIdAndUpdate(userId, { password: newPassword });
 
@@ -157,7 +148,58 @@ async function changePassword(userId, password) {
 /*                           Handle tokens                          */
 /* ---------------------------------------------------------------- */
 
-function generateToken(userId, type = "") {
+async function getTokens(userId = "") {
+	try {
+		const tokens = await Token.findOne({ user: userId });
+
+		let accessToken = "";
+		let refreshToken = "";
+
+		if (tokens) {
+			const accessTokenCheck = verifyToken(tokens.access, "ACCESS");
+
+			if (accessTokenCheck.success) {
+				accessToken = tokens.access;
+				refreshToken = tokens.refresh;
+			} else {
+				const refreshTokenCheck = verifyToken(tokens.refresh, "REFRESH");
+
+				if (refreshTokenCheck.success) {
+					const newAccessToken = generateToken(userId, "ACCESS");
+
+					await Token.findByIdAndUpdate(tokens, { access: newAccessToken });
+
+					accessToken = newAccessToken;
+					refreshToken = tokens.refresh;
+				} else {
+					const newAccessToken = generateToken(userId, "ACCESS");
+					const newRefreshToken = generateToken(userId, "REFRESH");
+
+					await Token.findByIdAndUpdate(tokens, { access: newAccessToken, refresh: newRefreshToken });
+
+					accessToken = newAccessToken;
+					refreshToken = newRefreshToken;
+				}
+			}
+		} else {
+			const newAccessToken = generateToken(userId, "ACCESS");
+			const newRefreshToken = generateToken(userId, "REFRESH");
+
+			const newTokens = await new Token({ user: userId, access: newAccessToken, refresh: newRefreshToken });
+			const createdTokens = await newTokens.save();
+
+			accessToken = createdTokens.access;
+			refreshToken = createdTokens.refresh;
+		}
+
+		return { success: true, accessToken, refreshToken };
+	} catch (error) {
+		console.log(error);
+		return { success: false, error: error.message };
+	}
+}
+
+function generateToken(userId = "", type = "") {
 	try {
 		const expiration = process.env[type + "_EXPIRATION"];
 		const secretKey = process.env[type + "_KEY"];
@@ -170,7 +212,7 @@ function generateToken(userId, type = "") {
 	}
 }
 
-function verifyToken(token, type = "") {
+function verifyToken(token = "", type = "") {
 	try {
 		const secretKey = process.env[type + "_KEY"];
 
@@ -182,7 +224,6 @@ function verifyToken(token, type = "") {
 			return { success: false };
 		}
 	} catch (error) {
-		console.error(error.message);
 		return { success: false };
 	}
 }
@@ -191,7 +232,7 @@ function verifyToken(token, type = "") {
 /*                           Handle emails                          */
 /* ---------------------------------------------------------------- */
 
-async function sendAccountValidationEmail(email, confirmationCode) {
+async function sendAccountValidationEmail(email = "", confirmationCode = "") {
 	try {
 		const transporter = nodemailer.createTransport({
 			service: "gmail",
@@ -222,7 +263,7 @@ async function sendAccountValidationEmail(email, confirmationCode) {
 	}
 }
 
-async function sendTemporaryPassword(email, tempPassword) {
+async function sendTemporaryPassword(email = "", tempPassword = "") {
 	try {
 		const transporter = nodemailer.createTransport({
 			service: "gmail",
@@ -253,4 +294,4 @@ async function sendTemporaryPassword(email, tempPassword) {
 	}
 }
 
-module.exports = { createUser, verifyUser, generateToken, verifyToken, resetPassword, changePassword };
+module.exports = { createUser, verifyUser, verifyAccount, generateToken, verifyToken, resetPassword, changePassword };

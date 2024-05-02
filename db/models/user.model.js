@@ -1,6 +1,6 @@
 const mongoose = require("mongoose").default;
 
-const rightSchema = new mongoose.Schema({
+const accountSchema = new mongoose.Schema({
 	type: { type: String, required: false, default: "user", enum: ["user", "admin"] },
 	registration: { type: String, required: false, default: "pending", enum: ["pending", "confirmed"] },
 	confirmationCode: { type: String, required: false, default: "" },
@@ -14,7 +14,7 @@ const userSchema = new mongoose.Schema(
 		tempPassword: { type: String, required: false, default: null },
 		tempPasswordExp: { type: Date, required: false, default: null },
 		avatar: { type: String, required: false, default: "" },
-		rights: rightSchema,
+		account: accountSchema,
 		status: { type: String, required: false, default: "offline", enum: ["online", "offline"] },
 		friends: [{ type: mongoose.Schema.Types.ObjectId, ref: "users", required: false }] || [],
 		// Stripe

@@ -1,3 +1,6 @@
+const Token = require("../db/models/token.model");
+const User = require("../db/models/user.model");
+
 const { generateToken, verifyToken } = require("../modules/auth.modules");
 
 const emailRegex = new RegExp(process.env.EMAIL_REGEX);
@@ -10,11 +13,27 @@ async function checkAccess(req, res, next) {
 
 		const accessTokenCheck = verifyToken(accessToken, "ACCESS");
 		if (accessTokenCheck.success) {
+			const user = await User.findById(accessTokenCheck.userId).select("account");
+			if (!user) return res.status(404).json({ success: false, error: "User not found" });
+
+			if (!["/change-password", "/confirm-account"].includes(req.route.path)) {
+				const isPending = user.account.registration === "pending";
+				if (!isPending) return res.json({ success: false, error: "Account not yet confirmed" });
+			}
+
 			req.userId = accessTokenCheck.userId;
 			return next();
 		} else {
 			const refreshTokenCheck = verifyToken(refreshToken, "REFRESH");
 			if (refreshTokenCheck.success) {
+				const user = await User.findById(refreshTokenCheck.userId).select("account");
+				if (!user) return res.status(404).json({ success: false, error: "User not found" });
+
+				if (!["/change-password", "/confirm-account"].includes(req.route.path)) {
+					const isPending = user.account.registration === "pending";
+					if (!isPending) return res.json({ success: false, error: "Account not yet confirmed" });
+				}
+
 				const newAccessToken = generateToken(refreshTokenCheck.userId, "ACCESS");
 				await Token.updateOne({ refresh: refreshToken }, { access: newAccessToken });
 				req.userId = refreshTokenCheck.userId;
