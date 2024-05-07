@@ -258,7 +258,7 @@ async function sendAccountValidationEmail(email = "", confirmationCode = "") {
 
 		return { success: true };
 	} catch (e) {
-		console.error(error.message);
+		console.error(e.message);
 		return { success: false };
 	}
 }
@@ -289,7 +289,7 @@ async function sendTemporaryPassword(email = "", tempPassword = "") {
 
 		return { success: true };
 	} catch (e) {
-		console.error(error.message);
+		console.error(e.message);
 		return { success: false };
 	}
 }
