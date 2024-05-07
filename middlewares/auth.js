@@ -3,8 +3,8 @@ const User = require("../db/models/User");
 
 const { generateToken, verifyToken } = require("../modules/auth");
 
-const emailRegex = new RegExp(process.env.EMAIL_REGEX);
-const passwordRegex = new RegExp(process.env.PASSWORD_REGEX);
+const emailRegex = /^((?!\.)[\w\-_.]*[^.])(@\w+)(\.\w+(\.\w+)?[^.\W])$/gim;
+const passwordRegex = /^(?=.*\d)(?=.*[A-Z])(?=.*[a-z])(?=.*[^\w\d\s:])([^\s]){8,16}$/gm;
 
 async function checkAccess(req, res, next) {
 	try {
