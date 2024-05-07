@@ -238,13 +238,10 @@ async function sendAccountValidationEmail(email = "", confirmationCode = "") {
 			service: "Gmail",
 			host: "smtp.gmail.com",
 			port: 465,
-			secure: true,
+			secure: false,
 			auth: {
 				user: process.env.NODEMAILER_EMAIL,
 				pass: process.env.NODEMAILER_PASSWORD,
-			},
-			tls: {
-				rejectUnauthorized: true, // Ensure this is set to true for security
 			},
 		});
 
@@ -275,13 +272,10 @@ async function sendTemporaryPassword(email = "", tempPassword = "") {
 			service: "Gmail",
 			host: "smtp.gmail.com",
 			port: 465,
-			secure: true,
+			secure: false,
 			auth: {
 				user: process.env.NODEMAILER_EMAIL,
 				pass: process.env.NODEMAILER_PASSWORD,
-			},
-			tls: {
-				rejectUnauthorized: true, // Ensure this is set to true for security
 			},
 		});
 
