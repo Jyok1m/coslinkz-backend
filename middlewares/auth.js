@@ -1,7 +1,7 @@
-const Token = require("../db/models/token.model");
-const User = require("../db/models/user.model");
+const Token = require("../db/models/Token");
+const User = require("../db/models/User");
 
-const { generateToken, verifyToken } = require("../modules/auth.modules");
+const { generateToken, verifyToken } = require("../modules/auth");
 
 const emailRegex = new RegExp(process.env.EMAIL_REGEX);
 const passwordRegex = new RegExp(process.env.PASSWORD_REGEX);

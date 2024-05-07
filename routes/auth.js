@@ -2,10 +2,10 @@ var express = require("express");
 var router = express.Router();
 
 // Middlewares
-const { checkAccess, checkSignUpFields } = require("../middlewares/auth.middleware");
+const { checkAccess, checkSignUpFields } = require("../middlewares/auth");
 
 // Modules
-const { createUser, verifyUser, verifyAccount, resetPassword, changePassword } = require("../modules/auth.modules");
+const { createUser, verifyUser, verifyAccount, resetPassword, changePassword } = require("../modules/auth");
 
 router.post("/sign-up", checkSignUpFields, async (req, res) => {
 	try {
