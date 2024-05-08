@@ -1,26 +1,32 @@
 var express = require("express");
 var router = express.Router();
 
+const { updateAvatar } = require("../modules/user");
+
 // Middleware
 const { checkAccess } = require("../middlewares/auth");
 
 // File upload
+const { uploadFile } = require("../modules/upload");
 const upload = require("../lib/multer");
-const cloudinary = require("../lib/cloudinary");
-const fs = require("fs");
 
 router.post("/avatar", checkAccess, upload.single("avatar"), async (req, res) => {
 	try {
 		const { userId } = req;
 
-		const uploader = async (path) => await cloudinary.uploads(path, `Avatars/${userId}`);
-		const path = await uploader(req.files[0].path);
-		fs.unlinkSync(req.files[0].path);
-		url = path.url;
+		const upload = await uploadFile(userId, req.file.path, "Avatar");
+		if (!upload.success) {
+			return res.json({ success: false, error: upload.error });
+		}
 
-		// res.json({ ...changeResult });
-		res.json({ result: true, message: "Avatar ajouté avec succès !", picture: url });
+		const update = await updateAvatar(userId, upload.uri);
+		if (!update.success) {
+			return res.json({ success: false, error: update.error });
+		}
+
+		res.json({ result: true, message: "Avatar ajouté avec succès !", avatar: upload.uri });
 	} catch (e) {
+		console.error(e); // Log the error for debugging
 		res.json({ success: false, error: e.message });
 	}
 });

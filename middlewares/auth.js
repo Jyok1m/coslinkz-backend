@@ -18,7 +18,7 @@ async function checkAccess(req, res, next) {
 
 			if (!["/change-password", "/confirm-account"].includes(req.route.path)) {
 				const isPending = user.account.registration === "pending";
-				if (!isPending) return res.json({ success: false, error: "Account not yet confirmed" });
+				if (isPending) return res.json({ success: false, error: "Account not yet confirmed" });
 			}
 
 			req.userId = accessTokenCheck.userId;
@@ -31,7 +31,7 @@ async function checkAccess(req, res, next) {
 
 				if (!["/change-password", "/confirm-account"].includes(req.route.path)) {
 					const isPending = user.account.registration === "pending";
-					if (!isPending) return res.json({ success: false, error: "Account not yet confirmed" });
+					if (isPending) return res.json({ success: false, error: "Account not yet confirmed" });
 				}
 
 				const newAccessToken = generateToken(refreshTokenCheck.userId, "ACCESS");
