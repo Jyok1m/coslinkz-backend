@@ -13,7 +13,7 @@ const moment = require("moment");
 
 async function createUser(username = "", email = "", password = "") {
 	try {
-		const userExists = await User.findOne({ username: new RegExp(username, "i") });
+		const userExists = await User.findOne({ $or: [{ username: new RegExp(username, "i") }, { email: new RegExp(email, "i") }] });
 		if (userExists) return { success: false, error: "User already exists" };
 
 		const newUser = await new User({
