@@ -14,7 +14,7 @@ router.post("/avatar", checkAccess, upload.single("avatar"), async (req, res) =>
 	try {
 		const { userId } = req;
 
-		const upload = await uploadFile(userId, req.file.path, "Avatar");
+		const upload = await uploadFile(userId, req.file.path, "avatar");
 		if (!upload.success) {
 			return res.json({ success: false, error: upload.error });
 		}
