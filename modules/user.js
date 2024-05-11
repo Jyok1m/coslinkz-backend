@@ -1,6 +1,8 @@
 const User = require("../db/models/User");
 const Friendship = require("../db/models/Friendship");
 
+const queryLimit = 3;
+
 /* ---------------------------------------------------------------- */
 /*                           Handle avatar                          */
 /* ---------------------------------------------------------------- */
@@ -22,9 +24,9 @@ async function updateAvatar(userId = "", uri = "") {
 /*                        Handle friend list                        */
 /* ---------------------------------------------------------------- */
 
-async function updateFriendList(userId = "", username = "", requestType = "", requestId = "") {
+async function updateFriendList(userId = "", username = "", ref = "", requestId = "") {
 	try {
-		if (["accept", "reject"].includes(requestType)) {
+		if (["accept", "reject"].includes(ref)) {
 			if (requestId) {
 				const friendship = await Friendship.findById(requestId);
 
@@ -34,7 +36,7 @@ async function updateFriendList(userId = "", username = "", requestType = "", re
 
 					if (isReceiver) {
 						if (status === "pending") {
-							if (requestType === "accept") {
+							if (ref === "accept") {
 								Promise.allSettled([
 									Friendship.findByIdAndUpdate(friendship._id, { status: "confirmed" }),
 									User.findByIdAndUpdate(sender, { $addToSet: { friends: receiver } }),
@@ -79,7 +81,7 @@ async function updateFriendList(userId = "", username = "", requestType = "", re
 						const { status, sender, receiver } = friendship;
 
 						if (status !== "locked") {
-							if (requestType === "create") {
+							if (ref === "create") {
 								if (status === "cancelled") {
 									await Friendship.findByIdAndUpdate(friendship._id, { sender: userId, receiver: target._id, status: "pending" });
 
@@ -109,7 +111,7 @@ async function updateFriendList(userId = "", username = "", requestType = "", re
 							return { success: false, error: "Operation forbidden. Please contact the support team" };
 						}
 					} else {
-						if (requestType === "create") {
+						if (ref === "create") {
 							const newFriendship = await new Friendship({ sender: userId, receiver: target._id, status: "pending" });
 
 							await newFriendship.save();
@@ -131,4 +133,50 @@ async function updateFriendList(userId = "", username = "", requestType = "", re
 	}
 }
 
-module.exports = { updateAvatar, updateFriendList };
+async function getFriendList(userId = "", ref = "", page = 1) {
+	try {
+		let query = { $or: [{ status: { $ne: "locked" } }, { status: { $ne: "cancelled" } }] };
+
+		if (ref === "all") {
+			query["$or"] = [{ sender: userId }, { receiver: userId }];
+		} else if (ref === "received") {
+			query.status = "pending";
+			query.receiver = userId;
+		} else if (ref === "sent") {
+			query.status = "pending";
+			query.sender = userId;
+		} else {
+			delete query["$or"];
+			query.status = "confirmed";
+		}
+
+		const friendships = await Friendship.find(query)
+			.limit(queryLimit)
+			.skip(queryLimit * page - queryLimit)
+			.populate("sender receiver");
+
+		const friendList = friendships.map((f) => {
+			let friend = {};
+
+			if (f.sender._id.toString() !== userId) {
+				friend = f.sender;
+			} else {
+				friend = f.receiver;
+			}
+
+			return {
+				username: friend.username,
+				avatar: friend.avatar,
+				isOnline: friend.status === "online",
+				friendshipStatus: f.status,
+				friendshipDate: f.date,
+			};
+		});
+
+		return { success: true, friendList };
+	} catch (e) {
+		return { success: false, error: e.message };
+	}
+}
+
+module.exports = { updateAvatar, updateFriendList, getFriendList };
