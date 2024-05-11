@@ -33,17 +33,6 @@ router.post("/avatar", checkAccess, upload.single("avatar"), async (req, res) =>
 	}
 });
 
-// Route to update profile
-
-router.put("/profile", checkAccess, async (req, res) => {
-	try {
-		const { userId } = req;
-	} catch (e) {
-		console.error(e); // Log the error for debugging
-		res.json({ success: false, error: e.message });
-	}
-});
-
 // Route to get profile
 
 router.get("/profile", checkAccess, async (req, res) => {
@@ -57,6 +46,17 @@ router.get("/profile", checkAccess, async (req, res) => {
 		} else {
 			return res.json({ success: false, error: search.error });
 		}
+	} catch (e) {
+		console.error(e); // Log the error for debugging
+		res.json({ success: false, error: e.message });
+	}
+});
+
+// Route to update profile
+
+router.put("/profile", checkAccess, async (req, res) => {
+	try {
+		const { userId } = req;
 	} catch (e) {
 		console.error(e); // Log the error for debugging
 		res.json({ success: false, error: e.message });
