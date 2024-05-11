@@ -34,11 +34,11 @@ router.post("/avatar", checkAccess, upload.single("avatar"), async (req, res) =>
 router.put("/friendship", checkAccess, async (req, res) => {
 	try {
 		const { userId } = req;
-		const { request, username } = req.query;
-		const requestTypes = ["create", "cancel"];
+		const { request, username, requestId } = req.query;
+		const requestTypes = ["create", "cancel", "accept", "reject"];
 
 		if (typeof request === "string" && requestTypes.includes(request)) {
-			const update = await updateFriendList(userId, username, request);
+			const update = await updateFriendList(userId, username, request, requestId);
 			if (update.success) {
 				return res.json({ ...update });
 			} else {
