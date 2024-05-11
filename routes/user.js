@@ -10,6 +10,8 @@ const { checkAccess } = require("../middlewares/auth");
 const { uploadFile } = require("../modules/upload");
 const upload = require("../lib/multer");
 
+// Route to upload / replace new avatar
+
 router.post("/avatar", checkAccess, upload.single("avatar"), async (req, res) => {
 	try {
 		const { userId } = req;
@@ -30,6 +32,8 @@ router.post("/avatar", checkAccess, upload.single("avatar"), async (req, res) =>
 		res.json({ success: false, error: e.message });
 	}
 });
+
+// Route to handle friendship requests
 
 router.put("/friendship", checkAccess, async (req, res) => {
 	try {
@@ -52,6 +56,8 @@ router.put("/friendship", checkAccess, async (req, res) => {
 		res.json({ success: false, error: e.message });
 	}
 });
+
+// Route to get friend list
 
 router.get("/friends", checkAccess, async (req, res) => {
 	try {
