@@ -164,13 +164,20 @@ async function getFriendList(userId = "", ref = "", page = 1) {
 				friend = f.receiver;
 			}
 
-			return {
+			let obj = {
+				requestId: f._id,
 				username: friend.username,
 				avatar: friend.avatar,
 				isOnline: friend.status === "online",
 				friendshipStatus: f.status,
-				friendshipDate: f.date,
+				friendshipDate: f.updatedAt,
 			};
+
+			if (ref === "received") {
+				obj.requestId = f._id;
+			}
+
+			return obj;
 		});
 
 		return { success: true, friendList };
