@@ -24,6 +24,8 @@ async function updateAvatar(userId = "", uri = "") {
 /*                        Handle friend list                        */
 /* ---------------------------------------------------------------- */
 
+/* ---------------------- Update friend list ---------------------- */
+
 async function updateFriendList(userId = "", username = "", ref = "", requestId = "") {
 	try {
 		if (["accept", "reject"].includes(ref)) {
@@ -132,6 +134,8 @@ async function updateFriendList(userId = "", username = "", ref = "", requestId 
 		return { success: false, error: e.message };
 	}
 }
+
+/* ---------------- Get friend list with pagination --------------- */
 
 async function getFriendList(userId = "", ref = "", page = 1) {
 	try {
