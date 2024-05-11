@@ -1,7 +1,7 @@
 var express = require("express");
 var router = express.Router();
 
-const { updateAvatar, updateFriendList, getFriendList } = require("../modules/user");
+const { getProfile, updateAvatar, updateFriendList, getFriendList } = require("../modules/user");
 
 // Middleware
 const { checkAccess } = require("../middlewares/auth");
@@ -27,6 +27,36 @@ router.post("/avatar", checkAccess, upload.single("avatar"), async (req, res) =>
 		}
 
 		res.json({ ...upload, message: update.message });
+	} catch (e) {
+		console.error(e); // Log the error for debugging
+		res.json({ success: false, error: e.message });
+	}
+});
+
+// Route to update profile
+
+router.put("/profile", checkAccess, async (req, res) => {
+	try {
+		const { userId } = req;
+	} catch (e) {
+		console.error(e); // Log the error for debugging
+		res.json({ success: false, error: e.message });
+	}
+});
+
+// Route to get profile
+
+router.get("/profile", checkAccess, async (req, res) => {
+	try {
+		const { userId } = req;
+		const { username = "" } = req.query;
+
+		const search = await getProfile(userId, username);
+		if (search.success) {
+			return res.json({ ...search });
+		} else {
+			return res.json({ success: false, error: search.error });
+		}
 	} catch (e) {
 		console.error(e); // Log the error for debugging
 		res.json({ success: false, error: e.message });

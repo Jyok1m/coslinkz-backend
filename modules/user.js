@@ -4,6 +4,40 @@ const Friendship = require("../db/models/Friendship");
 const queryLimit = 3;
 
 /* ---------------------------------------------------------------- */
+/*                          Handle profile                          */
+/* ---------------------------------------------------------------- */
+
+async function getProfile(userId = "", username = "") {
+	try {
+		let query = {};
+		let isOwn = false;
+
+		if (username) {
+			query = { username: { $regex: new RegExp(username, "i") } };
+		} else {
+			isOwn = true;
+			query = { _id: userId };
+		}
+
+		let selectParams = "-_id username avatar bio status createdAt";
+
+		if (isOwn) {
+			selectParams = "-_id username email avatar bio status createdAt";
+		}
+
+		const profile = await User.findOne(query).select(selectParams);
+
+		if (!profile) {
+			return { success: false, error: "No profile found" };
+		}
+
+		return { success: true, profile };
+	} catch (e) {
+		return { success: false, error: e.message };
+	}
+}
+
+/* ---------------------------------------------------------------- */
 /*                           Handle avatar                          */
 /* ---------------------------------------------------------------- */
 
@@ -190,4 +224,4 @@ async function getFriendList(userId = "", ref = "", page = 1) {
 	}
 }
 
-module.exports = { updateAvatar, updateFriendList, getFriendList };
+module.exports = { getProfile, updateAvatar, updateFriendList, getFriendList };
