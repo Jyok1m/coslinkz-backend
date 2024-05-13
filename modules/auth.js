@@ -114,7 +114,6 @@ async function resetPassword(email = "") {
 		if (!user) return { success: false, error: "User not found" };
 
 		const tempPassword = uid(15);
-		console.log(tempPassword);
 		const tempPasswordExp = moment.utc().add(15, "minutes").toDate();
 		await User.findByIdAndUpdate(String(user._id), { tempPassword: bcrypt.hashSync(tempPassword, 10), tempPasswordExp });
 		
@@ -279,8 +278,6 @@ async function sendTemporaryPassword(email = "", tempPassword = "") {
 				pass: process.env.NODEMAILER_PASSWORD,
 			},
 		});
-
-		console.log(transporter);
 
 		const mailOptions = {
 			from: process.env.NODEMAILER_EMAIL,
