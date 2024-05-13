@@ -48,7 +48,7 @@ async function createUser(username = "", email = "", password = "") {
 }
 
 /* ---------------------------------------------------------------- */
-/*                            Verify user                           */
+/*                           Verify user                            */
 /* ---------------------------------------------------------------- */
 
 async function verifyUser(identifier = "", password = "") {
@@ -114,11 +114,12 @@ async function resetPassword(email = "") {
 		if (!user) return { success: false, error: "User not found" };
 
 		const tempPassword = uid(15);
+		console.log(tempPassword);
 		const tempPasswordExp = moment.utc().add(15, "minutes").toDate();
 		await User.findByIdAndUpdate(String(user._id), { tempPassword: bcrypt.hashSync(tempPassword, 10), tempPasswordExp });
-
+		
 		await sendTemporaryPassword(user.email, tempPassword);
-
+		
 		return { success: true, message: "A new temporary password has been sent to your email" };
 	} catch (e) {
 		return { success: false, error: e.message };
@@ -279,6 +280,8 @@ async function sendTemporaryPassword(email = "", tempPassword = "") {
 			},
 		});
 
+		console.log(transporter);
+
 		const mailOptions = {
 			from: process.env.NODEMAILER_EMAIL,
 			to: email,
@@ -295,7 +298,7 @@ async function sendTemporaryPassword(email = "", tempPassword = "") {
 
 		return { success: true };
 	} catch (e) {
-		console.error(e.message);
+		console.error(e);
 		return { success: false };
 	}
 }
