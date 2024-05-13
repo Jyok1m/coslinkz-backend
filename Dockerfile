@@ -6,10 +6,10 @@ WORKDIR /app
 
 # Copy package.json and yarn.lock into the directory
 COPY package*.json ./
-COPY yarn.lock ./
+COPY package-lock.json ./
 
 # Install any needed packages specified in package.json
-RUN yarn install
+RUN npm install
 
 # Bundle app source inside the docker image
 COPY . .
