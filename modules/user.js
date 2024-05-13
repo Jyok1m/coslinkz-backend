@@ -1,6 +1,7 @@
 const User = require("../db/models/User");
 const Friendship = require("../db/models/Friendship");
 
+const bcrypt = require("bcrypt");
 const queryLimit = 3;
 
 /* ---------------------------------------------------------------- */
@@ -32,6 +33,29 @@ async function getProfile(userId = "", username = "") {
 		}
 
 		return { success: true, profile };
+	} catch (e) {
+		return { success: false, error: e.message };
+	}
+}
+
+async function updateProfile(userId = "", type = "", value = "") {
+	try {
+		if (["bio", "username", "email"].includes(type)) {
+			await User.findByIdAndUpdate(userId, { [type]: value });
+			return { success: true, message: "Profile successfully updated" };
+		} else if (type === "password") {
+			const user = await User.findById(userId).select("password");
+			const isPasswordMatch = bcrypt.compareSync(value, user.password);
+
+			if (!isPasswordMatch) {
+				await User.findByIdAndUpdate(userId, { [type]: bcrypt.hashSync(value, 10) });
+				return { success: true, message: "Password successfully updated" };
+			} else {
+				return { success: false, error: "The old and new passwords cannot be the same" };
+			}
+		} else {
+			return { success: false, error: "Invalid query" };
+		}
 	} catch (e) {
 		return { success: false, error: e.message };
 	}
@@ -224,4 +248,4 @@ async function getFriendList(userId = "", ref = "", page = 1) {
 	}
 }
 
-module.exports = { getProfile, updateAvatar, updateFriendList, getFriendList };
+module.exports = { getProfile, updateProfile, updateAvatar, updateFriendList, getFriendList };

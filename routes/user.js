@@ -1,10 +1,11 @@
 var express = require("express");
 var router = express.Router();
 
-const { getProfile, updateAvatar, updateFriendList, getFriendList } = require("../modules/user");
+const { getProfile, updateProfile, updateAvatar, updateFriendList, getFriendList } = require("../modules/user");
 
 // Middleware
 const { checkAccess } = require("../middlewares/auth");
+const { checkProfileField } = require("../middlewares/user");
 
 // File upload
 const { uploadFile } = require("../modules/upload");
@@ -54,9 +55,15 @@ router.get("/profile", checkAccess, async (req, res) => {
 
 // Route to update profile
 
-router.put("/profile", checkAccess, async (req, res) => {
+router.put("/profile", checkProfileField, checkAccess, async (req, res) => {
 	try {
-		const { userId } = req;
+		const { userId, type, value } = req;
+
+		// Options : email, username, password, bio
+		// type, value => req.body (e.g. "email" : "joachim.jasmin@gmail.com" ou "username" : "Jojo")
+
+		const profileUpdate = await updateProfile(userId, type, value);
+		res.json({ ...profileUpdate });
 	} catch (e) {
 		console.error(e); // Log the error for debugging
 		res.json({ success: false, error: e.message });
