@@ -15,19 +15,23 @@ const upload = require("../lib/multer");
 
 router.post("/avatar", checkAccess, upload.single("avatar"), async (req, res) => {
 	try {
-		const { userId } = req;
+		const { userId, file } = req;
 
-		const upload = await uploadFile(userId, req.file.path, "avatar");
-		if (!upload.success) {
-			return res.json({ success: false, error: upload.error });
+		if (file) {
+			const upload = await uploadFile(userId, file.path, "avatar");
+			if (!upload.success) {
+				return res.json({ success: false, error: upload.error });
+			}
+
+			const update = await updateAvatar(userId, upload.uri);
+			if (!update.success) {
+				return res.json({ success: false, error: update.error });
+			}
+
+			res.json({ ...upload, message: update.message });
+		} else {
+			return res.json({ success: false, error: "An error with the file occurred" });
 		}
-
-		const update = await updateAvatar(userId, upload.uri);
-		if (!update.success) {
-			return res.json({ success: false, error: update.error });
-		}
-
-		res.json({ ...upload, message: update.message });
 	} catch (e) {
 		console.error(e); // Log the error for debugging
 		res.json({ success: false, error: e.message });
