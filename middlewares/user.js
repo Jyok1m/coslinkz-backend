@@ -9,10 +9,10 @@ const checkProfileField = (req, res, next) => {
 			const key = Object.keys(req.body)[0];
 			const value = req.body[key];
 
-			switch (value) {
+			switch (key) {
 				case "email":
 					if (value.match(emailRegex)) {
-						req.value = value.toLowerCase();
+						req.body.email = value.toLowerCase();
 						break;
 					} else {
 						return res.json({ success: false, error: "Invalid email" });
@@ -29,7 +29,6 @@ const checkProfileField = (req, res, next) => {
 			}
 
 			req.type = key;
-			req.value = value;
 			next();
 		} else {
 			return res.json({ success: false, error: "Invalid body" });

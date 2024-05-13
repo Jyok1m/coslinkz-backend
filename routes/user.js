@@ -46,11 +46,7 @@ router.get("/profile", checkAccess, async (req, res) => {
 		const { username = "" } = req.query;
 
 		const search = await getProfile(userId, username);
-		if (search.success) {
-			return res.json({ ...search });
-		} else {
-			return res.json({ success: false, error: search.error });
-		}
+		res.json({ ...search });
 	} catch (e) {
 		console.error(e); // Log the error for debugging
 		res.json({ success: false, error: e.message });
@@ -61,12 +57,12 @@ router.get("/profile", checkAccess, async (req, res) => {
 
 router.put("/profile", checkProfileField, checkAccess, async (req, res) => {
 	try {
-		const { userId, type, value } = req;
+		const { userId, type } = req;
 
 		// Options : email, username, password, bio
 		// type, value => req.body (e.g. "email" : "joachim.jasmin@gmail.com" ou "username" : "Jojo")
 
-		const profileUpdate = await updateProfile(userId, type, value);
+		const profileUpdate = await updateProfile(userId, type, req.body[type]);
 		res.json({ ...profileUpdate });
 	} catch (e) {
 		console.error(e); // Log the error for debugging
