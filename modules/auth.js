@@ -116,9 +116,9 @@ async function resetPassword(email = "") {
 		const tempPassword = uid(15);
 		const tempPasswordExp = moment.utc().add(15, "minutes").toDate();
 		await User.findByIdAndUpdate(String(user._id), { tempPassword: bcrypt.hashSync(tempPassword, 10), tempPasswordExp });
-		
+
 		await sendTemporaryPassword(user.email, tempPassword);
-		
+
 		return { success: true, message: "A new temporary password has been sent to your email" };
 	} catch (e) {
 		return { success: false, error: e.message };
