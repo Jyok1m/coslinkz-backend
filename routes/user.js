@@ -71,6 +71,9 @@ router.put("/friendship", checkAccess, async (req, res) => {
 		const { username, requestId, ref } = req.query;
 		const refTypes = ["create", "cancel", "accept", "reject"];
 
+		// - Soit ref + username => pour create, cancel
+		// - Soit ref + requestId => pour accept, reject
+
 		if (typeof ref === "string" && refTypes.includes(ref)) {
 			const update = await updateFriendList(userId, username, ref, requestId);
 			if (update.success) {
