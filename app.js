@@ -10,6 +10,7 @@ var cors = require("cors");
 
 var indexRouter = require("./routes/index");
 var authRouter = require("./routes/auth");
+var profileRouter = require("./routes/profile");
 var userRouter = require("./routes/user");
 
 var app = express();
@@ -25,6 +26,7 @@ app.use(express.static(path.join(__dirname, "public")));
 
 app.use("/", indexRouter);
 app.use("/auth", authRouter);
+app.use("/profile", profileRouter);
 app.use("/user", userRouter);
 
 module.exports = app;
